@@ -32,3 +32,4 @@ rm -rf spider.jar/smali/com/github/catvod/parser
 
 rm -rf spider.jar/build
 rm -rf spider.jar/dist
+rm -rf Smali_classes

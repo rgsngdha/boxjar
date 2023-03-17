@@ -1,19 +1,20 @@
 package com.github.catvod.spider;
 
 
-import static java.lang.System.*;
+import static java.lang.System.currentTimeMillis;
 
-import okhttp3.*;
-import okio.ByteString;
-
-import java.security.spec.AlgorithmParameterSpec;
-import java.util.concurrent.TimeUnit;
+import android.app.Activity;
 import android.content.Context;
+import android.os.Build;
 import android.text.TextUtils;
+import android.webkit.ValueCallback;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+
 
 import com.github.catvod.crawler.Spider;
 import com.github.catvod.crawler.SpiderDebug;
-
 import com.github.catvod.utils.okhttp.OkHttpUtil;
 
 import org.json.JSONArray;
@@ -26,6 +27,7 @@ import org.jsoup.select.Elements;
 
 import java.net.URLEncoder;
 import java.security.Key;
+import java.security.spec.AlgorithmParameterSpec;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -33,19 +35,21 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.crypto.Cipher;
 import javax.crypto.Mac;
+import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
-import javax.crypto.Cipher;
-import javax.crypto.spec.IvParameterSpec;
-
 import okhttp3.OkHttpClient;
+import okhttp3.Request;
 import okhttp3.Response;
-
-
+import okhttp3.WebSocket;
+import okhttp3.WebSocketListener;
+import okio.ByteString;
 
 
 public class Dy555 extends Spider {
@@ -59,14 +63,23 @@ public class Dy555 extends Spider {
     protected Pattern regexVoddetail = Pattern.compile("/voddetail/(\\d+).html");
     protected Pattern regexPlay = Pattern.compile("/vodplay/(\\S+).html");
     protected Pattern regexPage = Pattern.compile("\\d+/(\\d+)");
-
+    protected WebView webView;
 
     private final String filterString = "{\"1\":[{\"name\":\"年份\",\"key\":\"year\",\"value\":[{\"n\":\"全部\",\"v\":\"\"},{\"n\":\"2022\",\"v\":\"2022\"},{\"n\":\"2021\",\"v\":\"2021\"},{\"n\":\"2020\",\"v\":\"2020\"},{\"n\":\"2019\",\"v\":\"2019\"},{\"n\":\"2018\",\"v\":\"2018\"},{\"n\":\"2017\",\"v\":\"2017\"},{\"n\":\"2016\",\"v\":\"2016\"},{\"n\":\"2015\",\"v\":\"2015\"},{\"n\":\"2014\",\"v\":\"2014\"},{\"n\":\"2013\",\"v\":\"2013\"},{\"n\":\"2012\",\"v\":\"2012\"},{\"n\":\"2011\",\"v\":\"2011\"},{\"n\":\"2010\",\"v\":\"2010\"}]},{\"name\":\"地区\",\"key\":\"area\",\"value\":[{\"n\":\"全部\",\"v\":\"\"},{\"n\":\"大陆\",\"v\":\"大陆\"},{\"n\":\"香港\",\"v\":\"香港\"},{\"n\":\"台湾\",\"v\":\"台湾\"},{\"n\":\"美国\",\"v\":\"美国\"},{\"n\":\"法国\",\"v\":\"法国\"},{\"n\":\"英国\",\"v\":\"英国\"},{\"n\":\"日本\",\"v\":\"日本\"},{\"n\":\"韩国\",\"v\":\"韩国\"},{\"n\":\"德国\",\"v\":\"德国\"},{\"n\":\"泰国\",\"v\":\"泰国\"},{\"n\":\"印度\",\"v\":\"印度\"},{\"n\":\"意大利\",\"v\":\"意大利\"},{\"n\":\"西班牙\",\"v\":\"西班牙\"},{\"n\":\"加拿大\",\"v\":\"加拿大\"},{\"n\":\"其他\",\"v\":\"其他\"}]},{\"name\":\"类型\",\"key\":\"class\",\"value\":[{\"n\":\"全部\",\"v\":\"\"},{\"n\":\"动作\",\"v\":\"动作\"},{\"n\":\"喜剧\",\"v\":\"喜剧\"},{\"n\":\"爱情\",\"v\":\"爱情\"},{\"n\":\"科幻\",\"v\":\"科幻\"},{\"n\":\"恐怖\",\"v\":\"恐怖\"},{\"n\":\"剧情\",\"v\":\"剧情\"},{\"n\":\"战争\",\"v\":\"战争\"},{\"n\":\"悬疑\",\"v\":\"悬疑\"},{\"n\":\"冒险\",\"v\":\"冒险\"},{\"n\":\"犯罪\",\"v\":\"犯罪\"},{\"n\":\"奇幻\",\"v\":\"奇幻\"},{\"n\":\"惊悚\",\"v\":\"惊悚\"},{\"n\":\"青春\",\"v\":\"青春\"},{\"n\":\"动画\",\"v\":\"动画\"}]},{\"name\":\"排序\",\"key\":\"by\",\"value\":[{\"n\":\"最新\",\"v\":\"time\"},{\"n\":\"人气\",\"v\":\"hits\"},{\"n\":\"评分\",\"v\":\"score\"}]}],\"2\":[{\"name\":\"年份\",\"key\":\"year\",\"value\":[{\"n\":\"全部\",\"v\":\"\"},{\"n\":\"2022\",\"v\":\"2022\"},{\"n\":\"2021\",\"v\":\"2021\"},{\"n\":\"2020\",\"v\":\"2020\"},{\"n\":\"2019\",\"v\":\"2019\"},{\"n\":\"2018\",\"v\":\"2018\"},{\"n\":\"2017\",\"v\":\"2017\"},{\"n\":\"2016\",\"v\":\"2016\"},{\"n\":\"2015\",\"v\":\"2015\"},{\"n\":\"2014\",\"v\":\"2014\"},{\"n\":\"2013\",\"v\":\"2013\"},{\"n\":\"2012\",\"v\":\"2012\"},{\"n\":\"2011\",\"v\":\"2011\"},{\"n\":\"2010\",\"v\":\"2010\"}]},{\"name\":\"地区\",\"key\":\"area\",\"value\":[{\"n\":\"全部\",\"v\":\"\"},{\"n\":\"内地\",\"v\":\"内地\"},{\"n\":\"韩国\",\"v\":\"韩国\"},{\"n\":\"香港\",\"v\":\"香港\"},{\"n\":\"台湾\",\"v\":\"台湾\"},{\"n\":\"日本\",\"v\":\"日本\"},{\"n\":\"美国\",\"v\":\"美国\"},{\"n\":\"泰国\",\"v\":\"泰国\"},{\"n\":\"英国\",\"v\":\"英国\"},{\"n\":\"新加坡\",\"v\":\"新加坡\"},{\"n\":\"其他\",\"v\":\"其他\"}]},{\"name\":\"类型\",\"key\":\"class\",\"value\":[{\"n\":\"全部\",\"v\":\"\"},{\"n\":\"古装\",\"v\":\"古装\"},{\"n\":\"战争\",\"v\":\"战争\"},{\"n\":\"青春偶像\",\"v\":\"青春偶像\"},{\"n\":\"喜剧\",\"v\":\"喜剧\"},{\"n\":\"家庭\",\"v\":\"家庭\"},{\"n\":\"犯罪\",\"v\":\"犯罪\"},{\"n\":\"动作\",\"v\":\"动作\"},{\"n\":\"奇幻\",\"v\":\"奇幻\"},{\"n\":\"剧情\",\"v\":\"剧情\"},{\"n\":\"历史\",\"v\":\"历史\"},{\"n\":\"经典\",\"v\":\"经典\"},{\"n\":\"乡村\",\"v\":\"乡村\"},{\"n\":\"情景\",\"v\":\"情景\"},{\"n\":\"商战\",\"v\":\"商战\"},{\"n\":\"网剧\",\"v\":\"网剧\"},{\"n\":\"其他\",\"v\":\"其他\"}]},{\"name\":\"排序\",\"key\":\"by\",\"value\":[{\"n\":\"最新\",\"v\":\"time\"},{\"n\":\"人气\",\"v\":\"hits\"},{\"n\":\"评分\",\"v\":\"score\"}]}],\"3\":[{\"name\":\"年份\",\"key\":\"year\",\"value\":[{\"n\":\"全部\",\"v\":\"\"},{\"n\":\"2022\",\"v\":\"2022\"},{\"n\":\"2021\",\"v\":\"2021\"},{\"n\":\"2020\",\"v\":\"2020\"},{\"n\":\"2019\",\"v\":\"2019\"},{\"n\":\"2018\",\"v\":\"2018\"},{\"n\":\"2017\",\"v\":\"2017\"},{\"n\":\"2016\",\"v\":\"2016\"},{\"n\":\"2015\",\"v\":\"2015\"},{\"n\":\"2014\",\"v\":\"2014\"},{\"n\":\"2013\",\"v\":\"2013\"},{\"n\":\"2012\",\"v\":\"2012\"},{\"n\":\"2011\",\"v\":\"2011\"},{\"n\":\"2010\",\"v\":\"2010\"}]},{\"name\":\"地区\",\"key\":\"area\",\"value\":[{\"n\":\"全部\",\"v\":\"\"},{\"n\":\"内地\",\"v\":\"内地\"},{\"n\":\"港台\",\"v\":\"港台\"},{\"n\":\"日韩\",\"v\":\"日韩\"},{\"n\":\"欧美\",\"v\":\"欧美\"}]},{\"name\":\"排序\",\"key\":\"by\",\"value\":[{\"n\":\"最新\",\"v\":\"time\"},{\"n\":\"人气\",\"v\":\"hits\"},{\"n\":\"评分\",\"v\":\"score\"}]}],\"5\":[{\"name\":\"年份\",\"key\":\"year\",\"value\":[{\"n\":\"全部\",\"v\":\"\"},{\"n\":\"2022\",\"v\":\"2022\"},{\"n\":\"2021\",\"v\":\"2021\"},{\"n\":\"2020\",\"v\":\"2020\"},{\"n\":\"2019\",\"v\":\"2019\"},{\"n\":\"2018\",\"v\":\"2018\"},{\"n\":\"2017\",\"v\":\"2017\"},{\"n\":\"2016\",\"v\":\"2016\"},{\"n\":\"2015\",\"v\":\"2015\"},{\"n\":\"2014\",\"v\":\"2014\"},{\"n\":\"2013\",\"v\":\"2013\"},{\"n\":\"2012\",\"v\":\"2012\"},{\"n\":\"2011\",\"v\":\"2011\"},{\"n\":\"2010\",\"v\":\"2010\"}]},{\"name\":\"类型\",\"key\":\"class\",\"value\":[{\"n\":\"全部\",\"v\":\"\"},{\"n\":\"番剧\",\"v\":\"番剧\"},{\"n\":\"国创\",\"v\":\"国创\"},{\"n\":\"动画片\",\"v\":\"动画片\"}]},{\"name\":\"排序\",\"key\":\"by\",\"value\":[{\"n\":\"最新\",\"v\":\"time\"},{\"n\":\"人气\",\"v\":\"hits\"},{\"n\":\"评分\",\"v\":\"score\"}]}]}";
     private final String playerString = "{\"xg_app_player\":{\"show\":\"app全局解析\",\"des\":\"\",\"ps\":\"1\",\"parse\":\"https://www.x-n.cc/api.php?url=\"},\"duoduozy\":{\"show\":\"555蓝光\",\"des\":\"\",\"ps\":\"0\",\"api\":\"https://zyz.sdljwomen.com/newduoduo/555tZ4pvzHE3BpiO838.php\",\"parse\":\"https://zyz.sdljwomen.com/server_player/?url=\"},\"bilibili\":{\"show\":\"bilibili\",\"des\":\"\",\"ps\":\"0\",\"api\":\"https://jhpc.021huaying.com/newplayer/5348837768203767939.php\",\"parse\":\"https://jhpc.021huaying.com/newplayer/?url=\"},\"youku\":{\"show\":\"优酷\",\"des\":\"\",\"ps\":\"0\",\"api\":\"https://jhpc.021huaying.com/newplayer/5348837768203767939.php\",\"parse\":\"https://jhpc.021huaying.com/newplayer/?url=\"},\"qiyi\":{\"show\":\"爱奇艺\",\"des\":\"\",\"ps\":\"0\",\"api\":\"https://jhpc.021huaying.com/newplayer/5348837768203767939.php\",\"parse\":\"https://jhpc.021huaying.com/newplayer/?url=\"},\"mgtv\":{\"show\":\"芒果\",\"des\":\"\",\"ps\":\"0\",\"api\":\"https://jhpc.021huaying.com/newplayer/5348837768203767939.php\",\"parse\":\"https://jhpc.021huaying.com/newplayer/?url=\"},\"qq\":{\"show\":\"腾讯\",\"des\":\"\",\"ps\":\"0\",\"api\":\"https://jhpc.021huaying.com/newplayer/5348837768203767939.php\",\"parse\":\"https://jhpc.021huaying.com/newplayer/?url=\"},\"sohu\":{\"show\":\"搜狐\",\"des\":\"\",\"ps\":\"0\",\"api\":\"https://jhpc.021huaying.com/newplayer/5348837768203767939.php\",\"parse\":\"https://jhpc.021huaying.com/newplayer/?url=\"},\"pptv\":{\"show\":\"PPTV\",\"des\":\"\",\"ps\":\"0\",\"api\":\"https://jhpc.021huaying.com/newplayer/5348837768203767939.php\",\"parse\":\"https://jhpc.021huaying.com/newplayer/?url=\"},\"m1905\":{\"show\":\"m1905\",\"des\":\"\",\"ps\":\"0\",\"api\":\"https://jhpc.021huaying.com/newplayer/5348837768203767939.php\",\"parse\":\"https://jhpc.021huaying.com/newplayer/?url=\"},\"xigua\":{\"show\":\"西瓜视频\",\"des\":\"\",\"ps\":\"0\",\"api\":\"https://jhpc.021huaying.com/newplayer/5348837768203767939.php\",\"parse\":\"https://jhpc.021huaying.com/newplayer/?url=\"},\"fuckapp\":{\"show\":\"独家线路\",\"des\":\"555自建资源\",\"ps\":\"0\",\"parse\":\"https://dp.dd520.cc/p.php?url=\"},\"letv\":{\"show\":\"乐视\",\"des\":\"\",\"ps\":\"0\",\"api\":\"https://jhpc.021huaying.com/newplayer/5348837768203767939.php\",\"parse\":\"https://jhpc.021huaying.com/newplayer/?url=\"},\"yemao\":{\"show\":\"优质线路1\",\"des\":\"极速蓝光\",\"ps\":\"0\",\"parse\":\"https://jx.manduhu.com/?url=\"},\"sdm3u8\":{\"show\":\"闪电线路\",\"des\":\"闪电\",\"ps\":\"0\",\"api\":\"https://zyz.sdljwomen.com/newm3u8/5348837768203767939.php\",\"parse\":\"https://zyz.sdljwomen.com/newm3u8/?url=\"},\"fsm3u8\":{\"show\":\"飞速线路\",\"des\":\"飞速\",\"ps\":\"0\",\"api\":\"https://zyz.sdljwomen.com/newm3u8/5348837768203767939.php\",\"parse\":\"https://zyz.sdljwomen.com/newm3u8/?url=\"},\"wjm3u8\":{\"show\":\"无尽线路\",\"des\":\"无尽\",\"ps\":\"0\",\"api\":\"https://zyz.sdljwomen.com/newm3u8/5348837768203767939.php\",\"parse\":\"https://zyz.sdljwomen.com/newm3u8/?url=\"},\"dbm3u8\":{\"show\":\"百度线路\",\"des\":\"百度\",\"ps\":\"0\",\"api\":\"https://zyz.sdljwomen.com/newm3u8/5348837768203767939.php\",\"parse\":\"https://zyz.sdljwomen.com/newm3u8/?url=\"},\"tkm3u8\":{\"show\":\"天空线路\",\"des\":\"天空\",\"ps\":\"0\",\"api\":\"https://zyz.sdljwomen.com/newm3u8/5348837768203767939.php\",\"parse\":\"https://zyz.sdljwomen.com/newm3u8/?url=\"},\"kbm3u8\":{\"show\":\"快播线路\",\"des\":\"快播\",\"ps\":\"0\",\"api\":\"https://zyz.sdljwomen.com/newm3u8/5348837768203767939.php\",\"parse\":\"https://zyz.sdljwomen.com/newm3u8/?url=\"},\"zhibo\":{\"show\":\"直播\",\"des\":\"\",\"ps\":\"1\",\"parse\":\"http://suoyou.live/dplay/zb.php?url=\"},\"dujia\":{\"show\":\"独家专线\",\"des\":\"\",\"ps\":\"0\",\"api\":\"https://zyz.sdljwomen.com/newm3u8/5348837768203767939.php\",\"parse\":\"https://zyz.sdljwomen.com/newm3u8/?url=\"}}";
     private String rs="";
-
+    Context c;
+    String cookie ="";
     @Override
     public void init(Context context) {
+        c = context;
+        ((Activity) c).runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                webView = new WebView(c);
+//                webView.loadUrl("https://www.555dianying.cc/vodshow/1--------1---.html");
+            }
+        });
         super.init(context);
         try {
             playerConfig = new JSONObject(playerString);
@@ -88,6 +101,7 @@ public class Dy555 extends Spider {
         if (!TextUtils.isEmpty(refererUrl)) {
             headers.put("Referer", refererUrl);
         }
+        headers.put("Cookie", cookie);
         headers.put("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36");
         headers.put("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8");
         return headers;
@@ -193,6 +207,14 @@ public class Dy555 extends Spider {
             String html = OkHttpUtil.string(url, getHeaders(siteUrl));
             Document doc = Jsoup.parse(html);
             JSONObject result = new JSONObject();
+            if (doc.select("div").size() == 0) {
+                initHeadless(url);
+                while (cookie == null || cookie.isEmpty() || cookie.equals("null")) {
+                    Thread.sleep(200);
+                }
+                html = OkHttpUtil.string(url, getHeaders(siteUrl));
+                doc = Jsoup.parse(html);
+            }
             int pageCount = 1;
 
             // 取页码相关信息
@@ -564,5 +586,45 @@ public class Dy555 extends Spider {
         headers.put("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36");
         headers.put("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8");
         return headers;
+    }
+
+    protected void initHeadless(String url) {
+        ((Activity) c).runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                WebSettings webSettings = webView.getSettings();
+                //允许使用JS
+                webSettings.setJavaScriptEnabled(true);
+                // 设置允许JS弹窗
+                webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
+
+                webView.loadUrl(url);
+                webView.setWebViewClient(new WebViewClient() {
+                    @Override
+                    public void onPageFinished(WebView view, String url) {
+                        super.onPageFinished(view, url);
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                            String jsobj = "if(document.cookie.indexOf(\"guardret\")>=0){\n" +
+                                    "document.cookie\n" +
+                                    "}else{\n" +
+                                    "tem = \"; \"+ document.cookie;cookies=tem.split(\"; \")\n" +
+                                    "cguard=cookies.filter(function(item){return item.indexOf(\"guard=\")===0})[0]\n" +
+                                    "guard=cguard.split(\"=\")[1].substr(0,8);\n" +
+                                    "md5 = cdn.MD5(guard);\n" +
+                                    "guardret=cdn.centos.encrypt('{\"N\":700,\"O\":280,\"=\":980}',md5,{iv:md5}).toString();\n" +
+                                    "document.cookie=\"guardret=\"+guardret;\n" +
+                                    "document.cookie;\n" +
+                                    "}";
+                            webView.evaluateJavascript(jsobj, new ValueCallback<String>() {
+                                @Override
+                                public void onReceiveValue(String value) {//这个方法value值是带双引号的
+                                    cookie = value.replace("\"", "");
+                                }
+                            });
+                        }
+                    }
+                });
+            }
+        });
     }
 }
